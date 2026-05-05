@@ -496,6 +496,12 @@ app.post('/api/mst/compare', (req, res) => {
   });
 });
 
+// ─── Serve Frontend (Catch-all for non-API routes) ───────────────────────────
+
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
 // ─── Start ────────────────────────────────────────────────────────────────────
 
 const PORT = process.env.PORT || 3001;
