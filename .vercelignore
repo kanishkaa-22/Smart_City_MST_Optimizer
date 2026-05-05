@@ -1,0 +1,8 @@
+node_modules
+.git
+.gitignore
+.env.local
+.env.*.local
+*.md
+Smart_City_MST_Optimizer.zip
+Smart_City_MST_Optimizer_Documentation.docx

@@ -12,10 +12,12 @@
 
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(express.static(path.join(__dirname, '.')));
 
 // ─── Union-Find (Disjoint Set) for Kruskal ───────────────────────────────────
 
@@ -497,18 +499,25 @@ app.post('/api/mst/compare', (req, res) => {
 // ─── Start ────────────────────────────────────────────────────────────────────
 
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-  console.log(`\n  Smart City MST Backend`);
-  console.log(`  ─────────────────────────────────────`);
-  console.log(`  Server running at http://localhost:${PORT}`);
-  console.log(`  Endpoints:`);
-  console.log(`    GET  /api/health`);
-  console.log(`    GET  /api/presets`);
-  console.log(`    GET  /api/presets/:key`);
-  console.log(`    POST /api/validate`);
-  console.log(`    POST /api/stats`);
-  console.log(`    POST /api/mst/kruskal`);
-  console.log(`    POST /api/mst/prim`);
-  console.log(`    POST /api/mst/compare`);
-  console.log(`  ─────────────────────────────────────\n`);
-});
+
+// Only listen locally (not in Vercel serverless environment)
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`\n  Smart City MST Backend`);
+    console.log(`  ─────────────────────────────────────`);
+    console.log(`  Server running at http://localhost:${PORT}`);
+    console.log(`  Endpoints:`);
+    console.log(`    GET  /api/health`);
+    console.log(`    GET  /api/presets`);
+    console.log(`    GET  /api/presets/:key`);
+    console.log(`    POST /api/validate`);
+    console.log(`    POST /api/stats`);
+    console.log(`    POST /api/mst/kruskal`);
+    console.log(`    POST /api/mst/prim`);
+    console.log(`    POST /api/mst/compare`);
+    console.log(`  ─────────────────────────────────────\n`);
+  });
+}
+
+// Export for Vercel serverless environment
+module.exports = app;
