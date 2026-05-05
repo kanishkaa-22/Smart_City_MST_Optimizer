@@ -1,0 +1,1245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart City Network — MST Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Exo+2:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #030a12;
+    --surface: #071526;
+    --surface2: #0a1f35;
+    --border: #0e3a5c;
+    --cyan: #00d4ff;
+    --cyan-dim: #0099bb;
+    --amber: #ffaa00;
+    --green: #00ff88;
+    --red: #ff3355;
+    --purple: #bb66ff;
+    --text: #c8e8ff;
+    --text-dim: #5588aa;
+    --glow-cyan: 0 0 12px #00d4ff88, 0 0 30px #00d4ff33;
+    --glow-amber: 0 0 12px #ffaa0088, 0 0 30px #ffaa0033;
+    --glow-green: 0 0 12px #00ff8888, 0 0 30px #00ff8833;
+    --glow-red: 0 0 12px #ff335588, 0 0 30px #ff335533;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Exo 2', sans-serif;
+    min-height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  header {
+    position: relative;
+    z-index: 10;
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, rgba(0,212,255,0.05) 0%, transparent 100%);
+  }
+  .logo {
+    font-family: 'Orbitron', monospace;
+    font-size: 18px;
+    font-weight: 900;
+    color: var(--cyan);
+    text-shadow: var(--glow-cyan);
+    letter-spacing: 2px;
+  }
+  .logo span { color: var(--amber); }
+  .header-status {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    display: flex;
+    gap: 20px;
+    align-items: center;
+  }
+  .header-status .dot {
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: var(--glow-green);
+    margin-right: 5px;
+    animation: blink 2s infinite;
+  }
+  .dot.offline { background: var(--red); box-shadow: var(--glow-red); }
+  .dot.connecting { background: var(--amber); box-shadow: var(--glow-amber); }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* API status chip */
+  #api-status-chip {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  #api-status-chip.online { border-color: var(--green); color: var(--green); }
+  #api-status-chip.offline { border-color: var(--red); color: var(--red); }
+  #api-status-chip.connecting { border-color: var(--amber); color: var(--amber); }
+
+  .main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 280px 1fr 300px;
+    gap: 0;
+    position: relative;
+    z-index: 5;
+    height: calc(100vh - 54px);
+    overflow: hidden;
+  }
+
+  .panel {
+    background: rgba(7,21,38,0.85);
+    border-right: 1px solid var(--border);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    overflow-y: auto;
+  }
+  .panel:last-child { border-right: none; border-left: 1px solid var(--border); }
+  .panel-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    color: var(--cyan);
+    text-transform: uppercase;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    text-shadow: var(--glow-cyan);
+  }
+  .section-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .btn {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 1px;
+    padding: 9px 14px;
+    border: 1px solid;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    width: 100%;
+    text-align: center;
+  }
+  .btn-primary { background: rgba(0,212,255,0.1); border-color: var(--cyan); color: var(--cyan); }
+  .btn-primary:hover { background: rgba(0,212,255,0.25); box-shadow: var(--glow-cyan); }
+  .btn-amber { background: rgba(255,170,0,0.1); border-color: var(--amber); color: var(--amber); }
+  .btn-amber:hover { background: rgba(255,170,0,0.25); box-shadow: var(--glow-amber); }
+  .btn-green {
+    background: rgba(0,255,136,0.12); border-color: var(--green); color: var(--green);
+    font-size: 13px; padding: 11px;
+  }
+  .btn-green:hover { background: rgba(0,255,136,0.25); box-shadow: var(--glow-green); }
+  .btn-red { background: rgba(255,51,85,0.1); border-color: var(--red); color: var(--red); }
+  .btn-red:hover { background: rgba(255,51,85,0.25); box-shadow: var(--glow-red); }
+  .btn-purple { background: rgba(187,102,255,0.1); border-color: var(--purple); color: var(--purple); }
+  .btn-purple:hover { background: rgba(187,102,255,0.25); }
+  .btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  .input-row { display: flex; gap: 6px; align-items: center; }
+  input, select {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    background: rgba(0,212,255,0.05);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 7px 10px;
+    border-radius: 3px;
+    outline: none;
+    transition: border-color 0.2s;
+    width: 100%;
+  }
+  input:focus, select:focus { border-color: var(--cyan); }
+  input::placeholder { color: var(--text-dim); }
+  select option { background: var(--surface); }
+
+  .toggle-group { display: flex; gap: 0; border: 1px solid var(--border); border-radius: 3px; overflow: hidden; }
+  .toggle-btn {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    flex: 1;
+    padding: 7px;
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 1px;
+  }
+  .toggle-btn.active {
+    background: rgba(0,212,255,0.15);
+    color: var(--cyan);
+    box-shadow: inset 0 0 10px rgba(0,212,255,0.1);
+  }
+
+  .slider-row { display: flex; align-items: center; gap: 10px; }
+  .slider-label { font-family: 'Share Tech Mono', monospace; font-size: 10px; color: var(--text-dim); white-space: nowrap; }
+  input[type=range] {
+    flex: 1; padding: 0; height: 4px; -webkit-appearance: none;
+    background: linear-gradient(90deg, var(--cyan), var(--cyan-dim));
+    border: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 14px; height: 14px;
+    border-radius: 50%; background: var(--cyan); box-shadow: var(--glow-cyan); cursor: pointer;
+  }
+
+  #canvas-wrap { position: relative; overflow: hidden; background: var(--bg); }
+  #canvas { display: block; cursor: crosshair; }
+
+  .mode-badge {
+    position: absolute; top: 14px; left: 14px;
+    font-family: 'Share Tech Mono', monospace; font-size: 10px;
+    letter-spacing: 2px; padding: 4px 10px; border: 1px solid; border-radius: 2px;
+    pointer-events: none;
+  }
+  .mode-badge.add-city { border-color: var(--cyan); color: var(--cyan); background: rgba(0,212,255,0.08); }
+  .mode-badge.add-edge { border-color: var(--amber); color: var(--amber); background: rgba(255,170,0,0.08); }
+  .mode-badge.remove { border-color: var(--red); color: var(--red); background: rgba(255,51,85,0.08); }
+  .mode-badge.view { border-color: var(--text-dim); color: var(--text-dim); background: rgba(0,0,0,0.3); }
+
+  /* API mode badge */
+  #api-mode-badge {
+    position: absolute; top: 14px; right: 14px;
+    font-family: 'Share Tech Mono', monospace; font-size: 10px;
+    letter-spacing: 1px; padding: 4px 10px; border: 1px solid; border-radius: 2px;
+    pointer-events: none; display: none;
+  }
+  #api-mode-badge.visible { display: block; border-color: var(--purple); color: var(--purple); background: rgba(187,102,255,0.08); }
+
+  .stat-card {
+    background: rgba(0,0,0,0.3); border: 1px solid var(--border);
+    border-radius: 4px; padding: 10px 12px;
+  }
+  .stat-card .stat-label {
+    font-family: 'Share Tech Mono', monospace; font-size: 9px;
+    color: var(--text-dim); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 4px;
+  }
+  .stat-card .stat-value {
+    font-family: 'Orbitron', monospace; font-size: 22px; font-weight: 700;
+    color: var(--cyan); text-shadow: var(--glow-cyan);
+  }
+  .stat-card .stat-value.amber { color: var(--amber); text-shadow: var(--glow-amber); }
+  .stat-card .stat-value.green { color: var(--green); text-shadow: var(--glow-green); }
+
+  #log {
+    flex: 1; background: rgba(0,0,0,0.3); border: 1px solid var(--border);
+    border-radius: 4px; padding: 10px; overflow-y: auto;
+    font-family: 'Share Tech Mono', monospace; font-size: 11px;
+    min-height: 120px; max-height: 260px;
+  }
+  .log-entry {
+    padding: 4px 0; border-bottom: 1px solid rgba(14,58,92,0.4);
+    line-height: 1.5; animation: fadeIn 0.3s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; } }
+  .log-entry.accepted { color: var(--green); }
+  .log-entry.rejected { color: var(--red); }
+  .log-entry.info { color: var(--cyan); }
+  .log-entry.step { color: var(--amber); }
+  .log-entry.api { color: var(--purple); }
+
+  #edge-list { max-height: 140px; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; }
+  .edge-item {
+    font-family: 'Share Tech Mono', monospace; font-size: 11px;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 5px 8px; background: rgba(0,0,0,0.2);
+    border: 1px solid var(--border); border-radius: 3px; transition: all 0.2s;
+  }
+  .edge-item.mst { border-color: var(--green); color: var(--green); }
+  .edge-item.rejected-edge { border-color: var(--red); color: var(--red); opacity: 0.6; }
+  .edge-item.current { border-color: var(--amber); color: var(--amber); animation: pulse 0.6s infinite alternate; }
+  @keyframes pulse { from { box-shadow: none; } to { box-shadow: 0 0 8px rgba(255,170,0,0.5); } }
+
+  .progress-bar-wrap { height: 4px; background: rgba(255,255,255,0.05); border-radius: 2px; overflow: hidden; }
+  .progress-bar {
+    height: 100%; background: linear-gradient(90deg, var(--cyan), var(--green));
+    border-radius: 2px; transition: width 0.4s; box-shadow: var(--glow-green);
+  }
+
+  #tooltip {
+    position: absolute; font-family: 'Share Tech Mono', monospace; font-size: 11px;
+    color: var(--amber); background: rgba(7,21,38,0.95); border: 1px solid var(--amber);
+    padding: 5px 10px; border-radius: 3px; pointer-events: none; display: none;
+    z-index: 100; box-shadow: var(--glow-amber);
+  }
+
+  /* API Config Panel */
+  .api-config {
+    background: rgba(0,0,0,0.25);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px;
+  }
+  .api-config .cfg-row {
+    display: flex; gap: 6px; align-items: center; margin-bottom: 6px;
+  }
+  .api-config input {
+    font-size: 11px; padding: 5px 8px;
+  }
+  .api-config .small-btn {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    padding: 5px 10px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    cursor: pointer;
+    background: transparent;
+    color: var(--text-dim);
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .api-config .small-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+
+  /* Extra stats from API */
+  #api-extra-stats {
+    background: rgba(187,102,255,0.05);
+    border: 1px solid rgba(187,102,255,0.2);
+    border-radius: 4px;
+    padding: 10px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    display: none;
+    line-height: 1.8;
+  }
+  #api-extra-stats.visible { display: block; }
+  #api-extra-stats .stat-row { display: flex; justify-content: space-between; }
+  #api-extra-stats .stat-row span:last-child { color: var(--purple); }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .divider { border: none; border-top: 1px solid var(--border); }
+  .btn-row { display: flex; gap: 6px; }
+  .btn-row .btn { flex: 1; }
+
+  /* Loading overlay on canvas */
+  #canvas-loading {
+    position: absolute; inset: 0;
+    background: rgba(3,10,18,0.7);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 12px;
+    z-index: 50;
+  }
+  #canvas-loading.visible { display: flex; }
+  #canvas-loading .spinner {
+    width: 40px; height: 40px;
+    border: 2px solid var(--border);
+    border-top-color: var(--cyan);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #canvas-loading p {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--cyan);
+    letter-spacing: 2px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">SMART<span>GRID</span> // MST OPTIMIZER</div>
+  <div class="header-status">
+    <span><span class="dot" id="sys-dot"></span><span id="sys-label">SYSTEM ONLINE</span></span>
+    <span id="hdr-nodes">NODES: 0</span>
+    <span id="hdr-edges">EDGES: 0</span>
+    <span id="hdr-algo">ALGO: KRUSKAL</span>
+    <span id="api-status-chip" class="offline" title="Click to ping API" onclick="pingApi()">API: OFFLINE</span>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- LEFT PANEL -->
+  <div class="panel">
+    <div class="panel-title">// NETWORK CONTROLS</div>
+
+    <div>
+      <div class="section-label">Algorithm</div>
+      <div class="toggle-group">
+        <button class="toggle-btn active" id="btn-kruskal" onclick="setAlgo('kruskal')">KRUSKAL'S</button>
+        <button class="toggle-btn" id="btn-prim" onclick="setAlgo('prim')">PRIM'S</button>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Edit Mode</div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+        <button class="btn btn-primary" onclick="setMode('add-city')">+ CITY</button>
+        <button class="btn btn-amber" onclick="setMode('add-edge')">+ EDGE</button>
+        <button class="btn btn-red" onclick="setMode('remove')">REMOVE</button>
+        <button class="btn" style="border-color:var(--text-dim);color:var(--text-dim)" onclick="setMode('view')">VIEW</button>
+      </div>
+    </div>
+
+    <div id="edge-weight-section" style="display:none">
+      <div class="section-label">Edge Weight</div>
+      <input type="number" id="weight-input" placeholder="Weight (1-99)" min="1" max="99" value="10">
+      <p style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--amber);margin-top:4px;">
+        Click first city → click second city
+      </p>
+    </div>
+
+    <hr class="divider">
+
+    <div>
+      <div class="section-label">Speed Control</div>
+      <div class="slider-row">
+        <span class="slider-label">SLOW</span>
+        <input type="range" id="speed-slider" min="1" max="10" value="4">
+        <span class="slider-label">FAST</span>
+      </div>
+      <p style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text-dim);text-align:center;margin-top:4px;" id="speed-label">Speed: 4x</p>
+    </div>
+
+    <button class="btn btn-green" id="run-btn" onclick="runSimulation()">▶ RUN SIMULATION</button>
+
+    <div class="btn-row">
+      <button class="btn btn-amber" onclick="stepSimulation()" id="step-btn" disabled>STEP</button>
+      <button class="btn btn-primary" onclick="resetSimulation()">RESET</button>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-purple" onclick="runCompare()" id="compare-btn">⇄ COMPARE</button>
+      <button class="btn btn-red" onclick="clearAll()">CLEAR</button>
+    </div>
+
+    <hr class="divider">
+
+    <div>
+      <div class="section-label">Load Preset</div>
+      <select id="preset-select" onchange="loadPreset(this.value)">
+        <option value="">— Select Preset —</option>
+        <option value="small">Small City (6 nodes)</option>
+        <option value="medium">Metro Area (9 nodes)</option>
+        <option value="large">Smart City (12 nodes)</option>
+      </select>
+    </div>
+
+    <hr class="divider">
+
+    <!-- API Config -->
+    <div>
+      <div class="section-label">Backend API</div>
+      <div class="api-config">
+        <div class="cfg-row">
+          <input type="text" id="api-url" value="http://localhost:3001" placeholder="http://localhost:3001">
+          <button class="small-btn" onclick="pingApi()">PING</button>
+        </div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text-dim);line-height:1.6;">
+          Connect backend to enable API-computed MST, graph stats, and validation.
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- CANVAS -->
+  <div id="canvas-wrap">
+    <canvas id="canvas"></canvas>
+    <div class="mode-badge view" id="mode-badge">● VIEW MODE</div>
+    <div id="api-mode-badge">◈ API MODE</div>
+    <div id="tooltip"></div>
+    <div id="canvas-loading">
+      <div class="spinner"></div>
+      <p id="loading-text">COMPUTING MST...</p>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="panel">
+    <div class="panel-title">// NETWORK ANALYTICS</div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+      <div class="stat-card">
+        <div class="stat-label">Total Cost</div>
+        <div class="stat-value amber" id="stat-total">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">MST Cost</div>
+        <div class="stat-value green" id="stat-mst">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Nodes</div>
+        <div class="stat-value" id="stat-nodes">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Edges</div>
+        <div class="stat-value" id="stat-edges">0</div>
+      </div>
+    </div>
+
+    <div class="stat-card" id="savings-card" style="display:none">
+      <div class="stat-label">Cost Reduction</div>
+      <div style="display:flex; align-items:baseline; gap:8px;">
+        <div class="stat-value green" id="stat-savings">0</div>
+        <span style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--green)" id="stat-pct"></span>
+      </div>
+    </div>
+
+    <!-- API Extra Stats -->
+    <div id="api-extra-stats">
+      <div class="section-label" style="margin-bottom:6px;">// API GRAPH STATS</div>
+      <div class="stat-row"><span>Density</span><span id="api-density">—</span></div>
+      <div class="stat-row"><span>Avg Degree</span><span id="api-avg-deg">—</span></div>
+      <div class="stat-row"><span>Avg Weight</span><span id="api-avg-wt">—</span></div>
+      <div class="stat-row"><span>Hub Node</span><span id="api-hub">—</span></div>
+    </div>
+
+    <div>
+      <div class="section-label">MST Progress</div>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar" id="progress-bar" style="width:0%"></div>
+      </div>
+      <p style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text-dim);margin-top:4px;" id="progress-label">Edges: 0 / 0 selected</p>
+    </div>
+
+    <div>
+      <div class="section-label">Current Step</div>
+      <div class="stat-card" style="border-color:var(--amber)">
+        <p style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text-dim)" id="step-text">Awaiting simulation...</p>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Edge Queue <span id="edge-count" style="color:var(--cyan)">(sorted by weight)</span></div>
+      <div id="edge-list"></div>
+    </div>
+
+    <div>
+      <div class="section-label">Simulation Log</div>
+      <div id="log"><div class="log-entry info">▸ System initialized. Load a preset or add cities manually.</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const wrap = document.getElementById('canvas-wrap');
+
+let nodes = [], edges = [], mode = 'view', algo = 'kruskal';
+let selectedNode = null;
+let animQueue = [], animTimer = null;
+let mstEdges = [], rejectedEdges = [], currentStepIdx = -1;
+let isRunning = false;
+let hoveredNode = null, hoveredEdge = null;
+let apiConnected = false;
+
+// ─── API Layer ───────────────────────────────────────────────────────────────
+
+function getApiBase() {
+  return document.getElementById('api-url').value.replace(/\/$/, '');
+}
+
+async function apiCall(endpoint, method = 'GET', body = null) {
+  const base = getApiBase();
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(`${base}${endpoint}`, opts);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+async function pingApi() {
+  setApiStatus('connecting');
+  try {
+    const data = await apiCall('/api/health');
+    setApiStatus('online');
+    addLog(`▸ API connected — ${data.version} @ ${getApiBase()}`, 'api');
+  } catch (e) {
+    setApiStatus('offline');
+    addLog(`▸ API offline: ${e.message}`, 'rejected');
+  }
+}
+
+function setApiStatus(status) {
+  apiConnected = status === 'online';
+  const chip = document.getElementById('api-status-chip');
+  const dot = document.getElementById('sys-dot');
+  chip.className = status;
+  chip.textContent = `API: ${status.toUpperCase()}`;
+  dot.className = `dot ${status === 'online' ? '' : status}`;
+
+  const apiBadge = document.getElementById('api-mode-badge');
+  if (apiConnected) {
+    apiBadge.className = 'visible';
+  } else {
+    apiBadge.className = '';
+  }
+}
+
+async function fetchApiStats() {
+  if (!apiConnected) return;
+  try {
+    const data = await apiCall('/api/stats', 'POST', { nodes, edges });
+    document.getElementById('api-density').textContent = data.density;
+    document.getElementById('api-avg-deg').textContent = data.avgDegree;
+    document.getElementById('api-avg-wt').textContent = data.avgWeight;
+    document.getElementById('api-hub').textContent = data.hubNode ? `${data.hubNode.label} (${data.hubNode.degree})` : '—';
+    document.getElementById('api-extra-stats').className = 'visible';
+  } catch (e) {
+    // silently fail stats
+  }
+}
+
+async function runApiSimulation() {
+  showLoading(`COMPUTING ${algo.toUpperCase()}...`);
+  try {
+    const endpoint = algo === 'kruskal' ? '/api/mst/kruskal' : '/api/mst/prim';
+    const data = await apiCall(endpoint, 'POST', { nodes, edges });
+
+    hideLoading();
+    addLog(`▸ [API] ${algo.toUpperCase()} computed: MST cost = ${data.mstCost}, saved ${data.savings} (${data.savingsPct}%)`, 'api');
+
+    // Feed API steps into local animation queue
+    animQueue = data.steps;
+    currentStepIdx = -1;
+
+    // Pre-load the sorted/init step
+    if (animQueue[0]?.type === 'init') {
+      addLog(animQueue[0].msg, 'info');
+      currentStepIdx = 0;
+    }
+
+    isRunning = true;
+    document.getElementById('run-btn').disabled = true;
+    document.getElementById('step-btn').disabled = false;
+    scheduleNext();
+
+    return true;
+  } catch (e) {
+    hideLoading();
+    addLog(`▸ API error: ${e.message}. Falling back to local.`, 'step');
+    return false;
+  }
+}
+
+async function runCompare() {
+  if (!apiConnected) {
+    addLog('▸ Backend required for compare. Ping API first.', 'rejected');
+    return;
+  }
+  if (nodes.length < 2 || edges.length === 0) {
+    addLog('▸ Need at least 2 cities and 1 edge!', 'rejected');
+    return;
+  }
+  showLoading('COMPARING ALGORITHMS...');
+  try {
+    const data = await apiCall('/api/mst/compare', 'POST', { nodes, edges });
+    hideLoading();
+    addLog(`▸ [COMPARE] Kruskal MST cost: ${data.kruskal.mstCost} | Steps: ${data.kruskal.stepCount}`, 'api');
+    addLog(`▸ [COMPARE] Prim MST cost: ${data.prim.mstCost} | Steps: ${data.prim.stepCount}`, 'api');
+    addLog(`▸ ${data.note}`, 'api');
+    addLog(`▸ Total cable cost → MST: savings ${data.savings} (${data.savingsPct}%)`, 'accepted');
+  } catch (e) {
+    hideLoading();
+    addLog(`▸ Compare error: ${e.message}`, 'rejected');
+  }
+}
+
+function showLoading(msg = 'COMPUTING...') {
+  document.getElementById('canvas-loading').className = 'visible';
+  document.getElementById('loading-text').textContent = msg;
+}
+function hideLoading() {
+  document.getElementById('canvas-loading').className = '';
+}
+
+// ─── Node helpers ─────────────────────────────────────────────────────────────
+function makeNode(x, y, id) {
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  return { x, y, id, label: letters[id % 26], r: 22, pulse: 0 };
+}
+
+// ─── Resize canvas ────────────────────────────────────────────────────────────
+function resize() {
+  canvas.width = wrap.clientWidth;
+  canvas.height = wrap.clientHeight;
+  draw();
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ─── Drawing ──────────────────────────────────────────────────────────────────
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawEdges();
+  drawNodes();
+}
+
+function edgeState(e) {
+  if (mstEdges.some(m => m.id === e.id)) return 'mst';
+  if (rejectedEdges.some(r => r.id === e.id)) return 'rejected';
+  return 'normal';
+}
+
+function drawEdges() {
+  edges.forEach(e => {
+    const n1 = nodes.find(n => n.id === e.n1);
+    const n2 = nodes.find(n => n.id === e.n2);
+    if (!n1 || !n2) return;
+
+    const state = edgeState(e);
+    const isCurrent = animQueue.length > 0 && currentStepIdx >= 0 &&
+      animQueue[currentStepIdx] && animQueue[currentStepIdx].edge?.id === e.id;
+    const isHovered = hoveredEdge && hoveredEdge.id === e.id;
+
+    let color, glow, dash = [], lw = 2;
+    if (isCurrent) { color = '#ffaa00'; glow = '255,170,0'; lw = 4; }
+    else if (state === 'mst') { color = '#00ff88'; glow = '0,255,136'; lw = 3.5; }
+    else if (state === 'rejected') { color = '#ff3355'; glow = '255,51,85'; lw = 1.5; dash = [6,4]; }
+    else if (isHovered) { color = '#00d4ff'; glow = '0,212,255'; lw = 2.5; }
+    else { color = '#0e3a5c'; glow = null; lw = 1.5; }
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.setLineDash(dash);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lw;
+    if (glow) { ctx.shadowColor = `rgba(${glow},0.8)`; ctx.shadowBlur = 15; }
+    ctx.moveTo(n1.x, n1.y);
+    ctx.lineTo(n2.x, n2.y);
+    ctx.stroke();
+    ctx.restore();
+
+    const mx = (n1.x + n2.x) / 2, my = (n1.y + n2.y) / 2;
+    const bg = state === 'mst' ? 'rgba(0,255,136,0.15)' : state === 'rejected' ? 'rgba(255,51,85,0.1)' : 'rgba(3,10,18,0.8)';
+    const tc = state === 'mst' ? '#00ff88' : state === 'rejected' ? '#ff3355' : isCurrent ? '#ffaa00' : '#5588aa';
+    ctx.save();
+    ctx.font = 'bold 11px Share Tech Mono, monospace';
+    const tw = ctx.measureText(e.weight).width;
+    ctx.fillStyle = bg;
+    ctx.fillRect(mx - tw/2 - 5, my - 8, tw + 10, 16);
+    ctx.fillStyle = tc;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(e.weight, mx, my);
+    ctx.restore();
+  });
+}
+
+function drawNodes() {
+  nodes.forEach(n => {
+    const isSelected = selectedNode && selectedNode.id === n.id;
+    const isHovered = hoveredNode && hoveredNode.id === n.id;
+    const inMST = mstEdges.some(e => e.n1 === n.id || e.n2 === n.id);
+    const isPrimStart = algo === 'prim' && mstEdges.length > 0 && n.id === nodes[0]?.id;
+
+    ctx.save();
+    const glowColor = isSelected ? '#ffaa00' : isPrimStart ? '#bb66ff' : inMST ? '#00ff88' : '#00d4ff';
+    const glowRgb = isSelected ? '255,170,0' : isPrimStart ? '187,102,255' : inMST ? '0,255,136' : '0,212,255';
+
+    if (isSelected || inMST || isPrimStart) {
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.r + 8, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(${glowRgb},0.3)`;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+    if (isHovered) {
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.r + 5, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(0,212,255,0.5)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      ctx.stroke();
+    }
+
+    const grad = ctx.createRadialGradient(n.x - 5, n.y - 5, 2, n.x, n.y, n.r);
+    grad.addColorStop(0, `rgba(${glowRgb},0.4)`);
+    grad.addColorStop(1, `rgba(${glowRgb},0.08)`);
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.strokeStyle = glowColor;
+    ctx.lineWidth = isSelected ? 2.5 : 2;
+    ctx.shadowColor = `rgba(${glowRgb},0.8)`;
+    ctx.shadowBlur = isSelected ? 20 : 12;
+    ctx.stroke();
+
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold 13px Orbitron, monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(n.label, n.x, n.y);
+
+    ctx.font = '10px Share Tech Mono, monospace';
+    ctx.fillStyle = glowColor;
+    ctx.shadowColor = `rgba(${glowRgb},0.6)`;
+    ctx.shadowBlur = 6;
+    ctx.fillText(`CITY-${n.label}`, n.x, n.y + n.r + 12);
+    ctx.restore();
+  });
+}
+
+// ─── Interaction ──────────────────────────────────────────────────────────────
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  hoveredNode = nodes.find(n => dist(n.x, n.y, mx, my) < n.r + 4) || null;
+  hoveredEdge = !hoveredNode ? edges.find(ed => {
+    const n1 = nodes.find(n => n.id === ed.n1), n2 = nodes.find(n => n.id === ed.n2);
+    if (!n1 || !n2) return false;
+    return pointToSegDist(mx, my, n1.x, n1.y, n2.x, n2.y) < 8;
+  }) : null;
+
+  const tip = document.getElementById('tooltip');
+  const wRect = wrap.getBoundingClientRect();
+  if (hoveredNode) {
+    tip.style.display = 'block';
+    tip.style.left = (e.clientX - wRect.left + 12) + 'px';
+    tip.style.top = (e.clientY - wRect.top - 10) + 'px';
+    const deg = edges.filter(ed => ed.n1 === hoveredNode.id || ed.n2 === hoveredNode.id).length;
+    tip.textContent = `CITY-${hoveredNode.label} | Connections: ${deg}`;
+  } else if (hoveredEdge) {
+    const n1 = nodes.find(n => n.id === hoveredEdge.n1), n2 = nodes.find(n => n.id === hoveredEdge.n2);
+    tip.style.display = 'block';
+    tip.style.left = (e.clientX - wRect.left + 12) + 'px';
+    tip.style.top = (e.clientY - wRect.top - 10) + 'px';
+    const s = edgeState(hoveredEdge);
+    tip.textContent = `CITY-${n1.label} ↔ CITY-${n2.label} | w:${hoveredEdge.weight} | ${s.toUpperCase()}`;
+  } else {
+    tip.style.display = 'none';
+  }
+  canvas.style.cursor = hoveredNode || hoveredEdge ? 'pointer' : mode === 'add-city' ? 'crosshair' : 'default';
+  draw();
+});
+
+canvas.addEventListener('click', e => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  const clicked = nodes.find(n => dist(n.x, n.y, mx, my) < n.r + 4);
+
+  if (mode === 'add-city') {
+    if (!clicked) {
+      const tooClose = nodes.some(n => dist(n.x, n.y, mx, my) < 60);
+      if (!tooClose) {
+        const id = nodes.length ? Math.max(...nodes.map(n => n.id)) + 1 : 0;
+        nodes.push(makeNode(mx, my, id));
+        addLog(`▸ Added CITY-${nodes[nodes.length-1].label}`, 'info');
+        updateStats(); draw();
+        fetchApiStats();
+      }
+    }
+  } else if (mode === 'add-edge') {
+    if (clicked) {
+      if (!selectedNode) {
+        selectedNode = clicked;
+        addLog(`▸ Selected CITY-${clicked.label}. Click another city.`, 'step');
+        draw();
+      } else {
+        if (selectedNode.id !== clicked.id) {
+          const w = parseInt(document.getElementById('weight-input').value) || 10;
+          const exists = edges.find(ed =>
+            (ed.n1===selectedNode.id&&ed.n2===clicked.id)||(ed.n1===clicked.id&&ed.n2===selectedNode.id));
+          if (!exists) {
+            const id = edges.length ? Math.max(...edges.map(e=>e.id))+1 : 0;
+            edges.push({ id, n1: selectedNode.id, n2: clicked.id, weight: w });
+            addLog(`▸ Added edge CITY-${selectedNode.label} ↔ CITY-${clicked.label} (w:${w})`, 'accepted');
+          } else {
+            addLog(`▸ Edge already exists.`, 'rejected');
+          }
+        }
+        selectedNode = null;
+        resetSimulation(false);
+        updateStats(); draw();
+        fetchApiStats();
+      }
+    }
+  } else if (mode === 'remove') {
+    if (clicked) {
+      edges = edges.filter(e => e.n1 !== clicked.id && e.n2 !== clicked.id);
+      nodes = nodes.filter(n => n.id !== clicked.id);
+      addLog(`▸ Removed CITY-${clicked.label}`, 'rejected');
+      resetSimulation(false); updateStats(); draw(); fetchApiStats();
+    } else if (hoveredEdge) {
+      const n1 = nodes.find(n => n.id === hoveredEdge.n1), n2 = nodes.find(n => n.id === hoveredEdge.n2);
+      edges = edges.filter(e => e.id !== hoveredEdge.id);
+      addLog(`▸ Removed edge CITY-${n1?.label} ↔ CITY-${n2?.label}`, 'rejected');
+      hoveredEdge = null;
+      resetSimulation(false); updateStats(); draw(); fetchApiStats();
+    }
+  }
+});
+
+canvas.addEventListener('mouseleave', () => {
+  document.getElementById('tooltip').style.display = 'none';
+  hoveredNode = null; hoveredEdge = null; draw();
+});
+
+// ─── Local Algorithms ─────────────────────────────────────────────────────────
+function makeUF(n) {
+  const p = Array.from({length:n},(_,i)=>i), rank = new Array(n).fill(0);
+  function find(x) { if(p[x]!==x) p[x]=find(p[x]); return p[x]; }
+  function union(a,b) {
+    a=find(a); b=find(b);
+    if(a===b) return false;
+    if(rank[a]<rank[b]) [a,b]=[b,a];
+    p[b]=a; if(rank[a]===rank[b]) rank[a]++;
+    return true;
+  }
+  return { find, union };
+}
+
+function buildKruskal() {
+  const steps = [];
+  const sorted = [...edges].sort((a,b) => a.weight - b.weight);
+  const idMap = {};
+  nodes.forEach((n,i) => idMap[n.id] = i);
+  const uf = makeUF(nodes.length);
+  steps.push({ type:'init', msg:`▸ KRUSKAL: Sorting ${sorted.length} edges by weight...` });
+  sorted.forEach(e => {
+    const a = idMap[e.n1], b = idMap[e.n2];
+    const canAdd = uf.find(a) !== uf.find(b);
+    const l1 = nodes.find(n=>n.id===e.n1)?.label, l2 = nodes.find(n=>n.id===e.n2)?.label;
+    if (canAdd) {
+      uf.union(a, b);
+      steps.push({ type:'accept', edge:e, msg:`✓ ACCEPT: ${l1} ↔ ${l2} (w=${e.weight}) — No cycle` });
+    } else {
+      steps.push({ type:'reject', edge:e, msg:`✗ REJECT: ${l1} ↔ ${l2} (w=${e.weight}) — Cycle!` });
+    }
+  });
+  steps.push({ type:'done', msg:`▸ KRUSKAL complete! MST has ${steps.filter(s=>s.type==='accept').length} edges.` });
+  return steps;
+}
+
+function buildPrim() {
+  const steps = [];
+  if (nodes.length === 0) return steps;
+  const visited = new Set();
+  const mstEdgeList = [];
+  const start = nodes[0];
+  visited.add(start.id);
+  steps.push({ type:'init', msg:`▸ PRIM: Starting from CITY-${start.label}. Expanding greedily...` });
+  while (visited.size < nodes.length) {
+    let best = null;
+    edges.forEach(e => {
+      const n1v = visited.has(e.n1), n2v = visited.has(e.n2);
+      if ((n1v&&!n2v)||(!n1v&&n2v)) { if (!best||e.weight<best.weight) best=e; }
+    });
+    if (!best) break;
+    const newNode = visited.has(best.n1) ? nodes.find(n=>n.id===best.n2) : nodes.find(n=>n.id===best.n1);
+    visited.add(newNode.id);
+    mstEdgeList.push(best);
+    const l1 = nodes.find(n=>n.id===best.n1)?.label, l2 = nodes.find(n=>n.id===best.n2)?.label;
+    steps.push({ type:'accept', edge:best, msg:`✓ ACCEPT: ${l1} ↔ ${l2} (w=${best.weight}) — Min edge to ${newNode.label}` });
+    edges.filter(e => {
+      const n1v=visited.has(e.n1), n2v=visited.has(e.n2);
+      return n1v&&n2v&&!mstEdgeList.some(m=>m.id===e.id);
+    }).forEach(e => {
+      if (!steps.some(s=>s.edge?.id===e.id&&s.type==='reject')) {
+        const l1=nodes.find(n=>n.id===e.n1)?.label, l2=nodes.find(n=>n.id===e.n2)?.label;
+        steps.push({ type:'reject', edge:e, msg:`✗ SKIP: ${l1} ↔ ${l2} (w=${e.weight}) — Both visited` });
+      }
+    });
+  }
+  steps.push({ type:'done', msg:`▸ PRIM complete! MST has ${mstEdgeList.length} edges.` });
+  return steps;
+}
+
+// ─── Simulation control ───────────────────────────────────────────────────────
+async function runSimulation() {
+  if (nodes.length < 2) { addLog('▸ Need at least 2 cities!', 'rejected'); return; }
+  if (edges.length === 0) { addLog('▸ Need at least 1 edge!', 'rejected'); return; }
+
+  resetSimulation(false);
+  addLog(`▸ Starting ${algo.toUpperCase()} algorithm${apiConnected ? ' via API' : ' (local)'}...`, 'info');
+
+  // Prefer API if connected
+  if (apiConnected) {
+    const ok = await runApiSimulation();
+    if (ok) return;
+  }
+
+  // Local fallback
+  animQueue = algo === 'kruskal' ? buildKruskal() : buildPrim();
+  currentStepIdx = -1;
+  updateEdgeList();
+  if (animQueue[0]?.type === 'init') {
+    addLog(animQueue[0].msg, 'info');
+    currentStepIdx = 0;
+  }
+  isRunning = true;
+  document.getElementById('run-btn').disabled = true;
+  document.getElementById('step-btn').disabled = false;
+  scheduleNext();
+}
+
+function scheduleNext() {
+  if (!isRunning) return;
+  const speed = parseInt(document.getElementById('speed-slider').value);
+  const delay = Math.round(1600 / speed);
+  animTimer = setTimeout(() => stepSimulation(true), delay);
+}
+
+function stepSimulation(auto = false) {
+  currentStepIdx++;
+  if (currentStepIdx >= animQueue.length) { finishSimulation(); return; }
+  const step = animQueue[currentStepIdx];
+  if (step.type === 'accept') {
+    if (step.edge) mstEdges.push(step.edge);
+    addLog(step.msg, 'accepted');
+  } else if (step.type === 'reject') {
+    if (step.edge) rejectedEdges.push(step.edge);
+    addLog(step.msg, 'rejected');
+  } else if (step.type === 'done') {
+    addLog(step.msg, 'info');
+    finishSimulation();
+    return;
+  } else {
+    addLog(step.msg, 'info');
+  }
+  updateStepInfo(step);
+  updateProgress();
+  updateEdgeList();
+  draw();
+  if (auto) scheduleNext();
+}
+
+function finishSimulation() {
+  isRunning = false;
+  clearTimeout(animTimer);
+  document.getElementById('run-btn').disabled = false;
+  document.getElementById('step-btn').disabled = true;
+  const mstCost = mstEdges.reduce((s,e)=>s+e.weight, 0);
+  const totalCost = edges.reduce((s,e)=>s+e.weight, 0);
+  document.getElementById('stat-mst').textContent = mstCost;
+  const savings = totalCost - mstCost;
+  const pct = totalCost > 0 ? Math.round(savings/totalCost*100) : 0;
+  document.getElementById('stat-savings').textContent = savings;
+  document.getElementById('stat-pct').textContent = `(${pct}% saved)`;
+  document.getElementById('savings-card').style.display = 'block';
+  addLog(`▸ Optimization complete! Cost: ${totalCost} → ${mstCost} (saved ${savings}, ${pct}%)`, 'accepted');
+  document.getElementById('step-text').textContent = `✓ MST Complete! Cost: ${mstCost}`;
+  draw();
+}
+
+function resetSimulation(log = true) {
+  clearTimeout(animTimer);
+  isRunning = false;
+  mstEdges = []; rejectedEdges = [];
+  animQueue = []; currentStepIdx = -1;
+  selectedNode = null;
+  document.getElementById('run-btn').disabled = false;
+  document.getElementById('step-btn').disabled = true;
+  document.getElementById('stat-mst').textContent = '—';
+  document.getElementById('savings-card').style.display = 'none';
+  document.getElementById('step-text').textContent = 'Awaiting simulation...';
+  document.getElementById('progress-bar').style.width = '0%';
+  document.getElementById('progress-label').textContent = 'Edges: 0 / 0 selected';
+  if (log) addLog('▸ Simulation reset.', 'info');
+  updateEdgeList(); updateStats(); draw();
+}
+
+function clearAll() {
+  nodes = []; edges = [];
+  resetSimulation(false);
+  document.getElementById('api-extra-stats').className = '';
+  document.getElementById('log').innerHTML = '<div class="log-entry info">▸ Network cleared. Add cities to begin.</div>';
+  updateStats(); draw();
+}
+
+// ─── UI helpers ───────────────────────────────────────────────────────────────
+function setMode(m) {
+  mode = m;
+  selectedNode = null;
+  const badge = document.getElementById('mode-badge');
+  const labels = { 'add-city':'+ ADD CITY MODE','add-edge':'+ ADD EDGE MODE','remove':'✕ REMOVE MODE','view':'● VIEW MODE' };
+  badge.textContent = labels[m];
+  badge.className = `mode-badge ${m}`;
+  document.getElementById('edge-weight-section').style.display = m === 'add-edge' ? 'block' : 'none';
+  draw();
+}
+
+function setAlgo(a) {
+  algo = a;
+  document.getElementById('btn-kruskal').classList.toggle('active', a==='kruskal');
+  document.getElementById('btn-prim').classList.toggle('active', a==='prim');
+  document.getElementById('hdr-algo').textContent = `ALGO: ${a.toUpperCase()}`;
+  resetSimulation(false);
+  addLog(`▸ Switched to ${a.toUpperCase()}.`, 'info');
+}
+
+function addLog(msg, type = '') {
+  const log = document.getElementById('log');
+  const div = document.createElement('div');
+  div.className = `log-entry ${type}`;
+  div.textContent = msg;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+function updateStats() {
+  const total = edges.reduce((s,e)=>s+e.weight, 0);
+  document.getElementById('stat-total').textContent = total;
+  document.getElementById('stat-nodes').textContent = nodes.length;
+  document.getElementById('stat-edges').textContent = edges.length;
+  document.getElementById('hdr-nodes').textContent = `NODES: ${nodes.length}`;
+  document.getElementById('hdr-edges').textContent = `EDGES: ${edges.length}`;
+}
+
+function updateStepInfo(step) {
+  const el = document.getElementById('step-text');
+  el.style.color = step.type==='accept' ? 'var(--green)' : step.type==='reject' ? 'var(--red)' : 'var(--cyan)';
+  el.textContent = step.msg;
+}
+
+function updateProgress() {
+  const accepted = mstEdges.length;
+  const target = nodes.length > 0 ? nodes.length - 1 : 0;
+  const pct = target > 0 ? Math.min(100, Math.round(accepted / target * 100)) : 0;
+  document.getElementById('progress-bar').style.width = pct + '%';
+  document.getElementById('progress-label').textContent = `Edges: ${accepted} / ${target} selected`;
+}
+
+function updateEdgeList() {
+  const list = document.getElementById('edge-list');
+  list.innerHTML = '';
+  const sorted = [...edges].sort((a,b)=>a.weight-b.weight);
+  sorted.forEach(e => {
+    const n1=nodes.find(n=>n.id===e.n1), n2=nodes.find(n=>n.id===e.n2);
+    if (!n1||!n2) return;
+    const div = document.createElement('div');
+    const isCurrent = animQueue[currentStepIdx]?.edge?.id===e.id;
+    const state = edgeState(e);
+    div.className = `edge-item ${isCurrent?'current':state==='mst'?'mst':state==='rejected'?'rejected-edge':''}`;
+    div.innerHTML = `<span>${n1.label}↔${n2.label}</span><span>${e.weight}</span>`;
+    list.appendChild(div);
+  });
+  document.getElementById('edge-count').textContent = `(${edges.length} total)`;
+}
+
+// ─── Presets ──────────────────────────────────────────────────────────────────
+function loadPreset(preset) {
+  if (!preset) return;
+  clearAll();
+  const W = canvas.width, H = canvas.height;
+  const cx = W/2, cy = H/2;
+
+  const configs = {
+    small: {
+      nodes: [{x:cx,y:cy-150,id:0},{x:cx+130,y:cy-60,id:1},{x:cx+130,y:cy+80,id:2},
+              {x:cx,y:cy+150,id:3},{x:cx-130,y:cy+80,id:4},{x:cx-130,y:cy-60,id:5}],
+      edges: [{n1:0,n2:1,w:4},{n1:0,n2:5,w:2},{n1:1,n2:2,w:6},{n1:1,n2:5,w:5},
+              {n1:2,n2:3,w:8},{n1:2,n2:4,w:7},{n1:3,n2:4,w:9},{n1:4,n2:5,w:3},
+              {n1:0,n2:3,w:11},{n1:1,n2:4,w:10}]
+    },
+    medium: {
+      nodes: [{x:cx,y:cy-180,id:0},{x:cx+160,y:cy-120,id:1},{x:cx+200,y:cy,id:2},
+              {x:cx+140,y:cy+130,id:3},{x:cx,y:cy+170,id:4},{x:cx-140,y:cy+130,id:5},
+              {x:cx-200,y:cy,id:6},{x:cx-160,y:cy-120,id:7},{x:cx,y:cy,id:8}],
+      edges: [{n1:0,n2:1,w:4},{n1:1,n2:2,w:8},{n1:2,n2:3,w:7},{n1:3,n2:4,w:9},
+              {n1:4,n2:5,w:10},{n1:5,n2:6,w:2},{n1:6,n2:7,w:6},{n1:7,n2:0,w:1},
+              {n1:8,n2:0,w:5},{n1:8,n2:1,w:3},{n1:8,n2:2,w:11},{n1:8,n2:3,w:4},
+              {n1:8,n2:4,w:6},{n1:8,n2:5,w:7},{n1:8,n2:6,w:8},{n1:8,n2:7,w:2},
+              {n1:0,n2:2,w:12},{n1:1,n2:3,w:5}]
+    },
+    large: {
+      nodes: [{x:cx,y:cy-190,id:0},{x:cx+120,y:cy-150,id:1},{x:cx+190,y:cy-60,id:2},
+              {x:cx+190,y:cy+60,id:3},{x:cx+120,y:cy+150,id:4},{x:cx,y:cy+190,id:5},
+              {x:cx-120,y:cy+150,id:6},{x:cx-190,y:cy+60,id:7},{x:cx-190,y:cy-60,id:8},
+              {x:cx-120,y:cy-150,id:9},{x:cx+60,y:cy,id:10},{x:cx-60,y:cy,id:11}],
+      edges: [{n1:0,n2:1,w:3},{n1:1,n2:2,w:5},{n1:2,n2:3,w:4},{n1:3,n2:4,w:6},
+              {n1:4,n2:5,w:8},{n1:5,n2:6,w:7},{n1:6,n2:7,w:9},{n1:7,n2:8,w:2},
+              {n1:8,n2:9,w:4},{n1:9,n2:0,w:6},{n1:0,n2:2,w:11},{n1:1,n2:3,w:9},
+              {n1:2,n2:4,w:7},{n1:3,n2:5,w:10},{n1:4,n2:6,w:5},{n1:5,n2:7,w:8},
+              {n1:6,n2:8,w:12},{n1:7,n2:9,w:6},{n1:8,n2:0,w:7},{n1:9,n2:1,w:5},
+              {n1:10,n2:0,w:4},{n1:10,n2:1,w:6},{n1:10,n2:2,w:3},{n1:10,n2:3,w:5},
+              {n1:11,n2:7,w:4},{n1:11,n2:8,w:3},{n1:11,n2:9,w:7},{n1:11,n2:6,w:6},
+              {n1:10,n2:11,w:2}]
+    }
+  };
+
+  const cfg = configs[preset];
+  cfg.nodes.forEach(nd => nodes.push(makeNode(nd.x, nd.y, nd.id)));
+  cfg.edges.forEach((ed, i) => edges.push({ id:i, n1:ed.n1, n2:ed.n2, weight:ed.w }));
+  addLog(`▸ Loaded "${preset}" preset: ${nodes.length} cities, ${edges.length} connections.`, 'info');
+  updateStats(); updateEdgeList(); draw();
+  document.getElementById('preset-select').value = '';
+  fetchApiStats();
+}
+
+// ─── Utils ────────────────────────────────────────────────────────────────────
+function dist(x1,y1,x2,y2) { return Math.sqrt((x2-x1)**2+(y2-y1)**2); }
+function pointToSegDist(px,py,ax,ay,bx,by) {
+  const dx=bx-ax, dy=by-ay;
+  const t = Math.max(0,Math.min(1,((px-ax)*dx+(py-ay)*dy)/(dx*dx+dy*dy||1)));
+  return dist(px,py,ax+t*dx,ay+t*dy);
+}
+
+document.getElementById('speed-slider').addEventListener('input', function() {
+  document.getElementById('speed-label').textContent = `Speed: ${this.value}x`;
+});
+
+// Animate loop
+let t = 0;
+function animateLoop() { t+=0.02; draw(); requestAnimationFrame(animateLoop); }
+animateLoop();
+
+// Initial state
+updateStats();
+addLog('▸ Load a preset or add cities/edges manually.', 'info');
+addLog('▸ Connect backend API for enhanced features.', 'info');
+
+// Auto-ping API on load
+pingApi();
+</script>
+</body>
+</html>
